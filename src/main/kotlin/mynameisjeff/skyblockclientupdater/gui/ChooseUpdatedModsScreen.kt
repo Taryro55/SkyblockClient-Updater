@@ -126,7 +126,7 @@ class ChooseUpdatedModsScreen : GuiScreen() {
             val oldFile: String,
             val newFile: String,
             val toggleButton: GuiButton,
-            var needsUpdate: Boolean = false
+            var needsUpdate: Boolean = true
         )
     }
 }
