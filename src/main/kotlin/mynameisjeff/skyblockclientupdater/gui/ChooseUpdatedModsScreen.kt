@@ -7,8 +7,6 @@ import net.minecraft.client.gui.GuiButton
 import net.minecraft.client.gui.GuiMainMenu
 import net.minecraft.client.gui.GuiScreen
 import net.minecraft.client.renderer.Tessellator
-import net.minecraft.client.settings.GameSettings
-import net.minecraft.util.EnumChatFormatting
 import net.minecraftforge.fml.client.GuiScrollingList
 import java.awt.Color
 
