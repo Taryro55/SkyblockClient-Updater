@@ -1,10 +1,10 @@
 package mynameisjeff.skyblockclientupdater.gui
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater
+import mynameisjeff.skyblockclientupdater.utils.TickTask
 import mynameisjeff.skyblockclientupdater.utils.UpdateChecker
 import net.minecraft.client.gui.GuiButton
 import net.minecraft.client.gui.GuiScreen
@@ -22,13 +22,13 @@ import kotlin.concurrent.thread
  * https://github.com/Skytils/SkytilsMod/blob/1.x/LICENSE
  */
 class UpdateScreen(private val updatingMods: List<Triple<File, String, String>>) : GuiScreen() {
-    private var failed = false
     private var complete = false
     private var exited = false
     private var backButton: GuiButton = GuiButton(0, 0, 0, 200, 20, "")
     private var progress = 0f
 
-    private var completedDownloads = 0
+    private var downloadedMods = arrayListOf<File>()
+    private var failedDownloadingMods = arrayListOf<File>()
 
     override fun initGui() {
         backButton.xPosition = width / 2 - 100
@@ -47,12 +47,12 @@ class UpdateScreen(private val updatingMods: List<Triple<File, String, String>>)
                         launch(Dispatchers.IO) {
                             val jarName = update.second
                             val url = update.third
-                            downloadUpdate(url, File(directory, jarName))
-                            if (!failed) {
+                            val file = File(directory, jarName)
+                            downloadUpdate(url, file)
+                            if (!failedDownloadingMods.contains(file)) {
+                                downloadedMods.add(file)
                                 UpdateChecker.deleteFileOnShutdown(update.first, jarName)
                             }
-                        }.invokeOnCompletion {
-                            completedDownloads++
                         }
                     }
                 } catch (ex: Exception) {
@@ -63,7 +63,7 @@ class UpdateScreen(private val updatingMods: List<Triple<File, String, String>>)
     }
 
     private fun updateText() {
-        backButton.displayString = if (failed || complete) "Back" else "Cancel"
+        backButton.displayString = if (exited || complete) "Back" else "Cancel"
     }
 
     private fun downloadUpdate(url: String, location: File) {
@@ -75,14 +75,14 @@ class UpdateScreen(private val updatingMods: List<Triple<File, String, String>>)
             )
             st.connect()
             if (st.responseCode != HttpURLConnection.HTTP_OK) {
-                failed = true
+                failedDownloadingMods.add(location)
                 updateText()
                 println(url + " returned status code " + st.responseCode)
                 return
             }
             location.parentFile.mkdirs()
             if (!location.exists() && !location.createNewFile()) {
-                failed = true
+                failedDownloadingMods.add(location)
                 updateText()
                 println("Couldn't create update file directory")
                 return
@@ -98,7 +98,6 @@ class UpdateScreen(private val updatingMods: List<Triple<File, String, String>>)
                     // Cancelled
                     fos.close()
                     fis.close()
-                    failed = true
                     return
                 }
                 total += count.toLong()
@@ -109,12 +108,11 @@ class UpdateScreen(private val updatingMods: List<Triple<File, String, String>>)
             fos.close()
             fis.close()
             if (exited) {
-                failed = true
                 return
             }
         } catch (ex: Exception) {
             ex.printStackTrace()
-            failed = true
+            failedDownloadingMods.add(location)
             updateText()
         }
     }
@@ -128,9 +126,9 @@ class UpdateScreen(private val updatingMods: List<Triple<File, String, String>>)
     override fun drawScreen(mouseX: Int, mouseY: Int, partialTicks: Float) {
         drawDefaultBackground()
         when {
-            failed -> drawCenteredString(
+            exited -> drawCenteredString(
                 mc.fontRendererObj,
-                EnumChatFormatting.RED.toString() + "Update download failed",
+                EnumChatFormatting.RED.toString() + "Update download exited",
                 width / 2,
                 height / 2,
                 -0x1
@@ -142,13 +140,15 @@ class UpdateScreen(private val updatingMods: List<Triple<File, String, String>>)
                 height / 2,
                 0xFFFFFF
             )
+            downloadedMods.size + failedDownloadingMods.size == updatingMods.size -> {
+                complete = true
+                updateText()
+                TickTask(1) {
+                    mc.displayGuiScreen(UpdateSummaryScreen(downloadedMods, failedDownloadingMods))
+                }
+            }
             else -> {
                 drawCenteredString(mc.fontRendererObj,"Downloading... ${UpdateChecker.needsDelete.size} / ${updatingMods.size}", width / 2, height / 2, 0xFFFFFF)
-                if (!failed && completedDownloads == updatingMods.size) {
-                    mc.shutdown()
-                    complete = true
-                    updateText()
-                }
             }
         }
         super.drawScreen(mouseX, mouseY, partialTicks)
