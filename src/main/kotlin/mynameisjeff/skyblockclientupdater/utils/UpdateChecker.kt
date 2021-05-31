@@ -37,8 +37,9 @@ object UpdateChecker {
         if (event.gui !is GuiMainMenu) return
         if (needsUpdate.isEmpty()) return
 
-        event.isCanceled = true
-        SkyClientUpdater.displayScreen = PromptUpdateScreen()
+        TickTask(2) {
+            SkyClientUpdater.displayScreen = PromptUpdateScreen()
+        }
     }
 
     fun deleteFileOnShutdown(oldFile: File, newFile: String) {
