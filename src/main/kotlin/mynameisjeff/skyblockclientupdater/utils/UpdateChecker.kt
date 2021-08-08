@@ -12,6 +12,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import org.apache.commons.lang3.StringUtils.getLevenshteinDistance
 import org.apache.http.HttpVersion
 import org.apache.http.client.methods.HttpGet
+import java.awt.Desktop
 import java.io.*
 import java.net.URL
 import kotlin.concurrent.thread
@@ -81,6 +82,15 @@ object UpdateChecker {
                     }
                     val runtime = getJavaRuntime()
                     println("Using runtime $runtime")
+                    if (net.minecraft.util.Util.getOSType() == net.minecraft.util.Util.EnumOS.OSX) {
+                        val sipStatus = Runtime.getRuntime().exec("csrutil status")
+                        sipStatus.waitFor()
+                        if (!sipStatus.inputStream.readTextAndClose().contains("System Integrity Protection status: disabled.")) {
+                            println("SIP is NOT disabled, opening Finder.")
+                            Desktop.getDesktop().open(File(mc.mcDataDir, "mods"))
+                            return@Thread
+                        }
+                    }
                     Runtime.getRuntime().exec("\"$runtime\" -jar \"${deleteTask.absolutePath}\" ${needsDelete.joinToString(" ") {"\"${it.first.absolutePath}\""}}")
                     println("Successfully applied SkyClient mod update.")
                 } catch (ex: Throwable) {
