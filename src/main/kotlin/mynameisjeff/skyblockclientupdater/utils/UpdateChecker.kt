@@ -1,7 +1,7 @@
 package mynameisjeff.skyblockclientupdater.utils
 
+import com.google.gson.JsonArray
 import com.google.gson.JsonParser
-import com.google.gson.JsonArray 
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater.mc
 import mynameisjeff.skyblockclientupdater.gui.PromptUpdateScreen
@@ -9,7 +9,7 @@ import net.minecraft.client.gui.GuiMainMenu
 import net.minecraftforge.client.event.GuiOpenEvent
 import net.minecraftforge.fml.common.eventhandler.EventPriority
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
-import org.apache.commons.lang3.StringUtils.getLevenshteinDistance
+import org.apache.commons.lang3.StringUtils
 import org.apache.http.HttpVersion
 import org.apache.http.client.methods.HttpGet
 import java.awt.Desktop
@@ -138,15 +138,34 @@ object UpdateChecker {
     }
 
     fun getUpdateCandidates() {
-        loopMods@ for (modFile in installedMods) {
+        val needsChecking = installedMods.filter { !latestMods.keys.contains(it.name) }
+        val allowedRemoteChecks = latestMods.keys.filter { installedMods.none { m -> m.name == it } }
+        loopMods@ for (modFile in needsChecking) {
             val fileName = modFile.name
-            for (modEntry in latestMods.keys) {
-                val distance = getLevenshteinDistance(fileName, modEntry)
-                if (distance !in 1..6) continue
+            for (modEntry in allowedRemoteChecks) {
+                if (!checkMatch(modEntry, fileName))
                 needsUpdate.add(Triple(modFile, modEntry, latestMods[modEntry]!!))
                 continue@loopMods
             }
         }
+    }
+
+    private fun checkMatch(expected: String, received: String): Boolean {
+        val exempt = charArrayOf('_', '-', '+', ' ', '.')
+        val whitespace = charArrayOf('_', ' ', '.', '+')
+
+        val e = expected.toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
+        val r = received.toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
+        val distance = StringUtils.getLevenshteinDistance(expected, received)
+        if (distance !in 1..6) return false
+
+        val ec = e.filterIndexed { index, c -> c != r[index] }
+        val rc = r.filterIndexed { index, c -> c != e[index] }
+
+        if (listOf(ec, rc).flatten().none { !it.isDigit() && !whitespace.contains(it) }) {
+            return (ec.firstOrNull { it.isDigit() }?.digitToInt() ?: 0) > (rc.firstOrNull { it.isDigit() }?.digitToInt() ?: 0)
+        }
+        return true
     }
 
     fun downloadHelperTask() {
