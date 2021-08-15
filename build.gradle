@@ -7,7 +7,7 @@ plugins {
 
 ext.kotlin_version = "1.5.21"
 
-version = "1.0.7"
+version = "1.0.8"
 group = "mynameisjeff"
 archivesBaseName = "SkyblockClient-Updater"
 

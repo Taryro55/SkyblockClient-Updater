@@ -143,7 +143,7 @@ object UpdateChecker {
         loopMods@ for (modFile in needsChecking) {
             val fileName = modFile.name
             for (modEntry in allowedRemoteChecks) {
-                if (!checkMatch(modEntry, fileName))
+                if (!checkMatch(modEntry, fileName)) continue
                 needsUpdate.add(Triple(modFile, modEntry, latestMods[modEntry]!!))
                 continue@loopMods
             }
@@ -159,8 +159,8 @@ object UpdateChecker {
         val distance = StringUtils.getLevenshteinDistance(expected, received)
         if (distance !in 1..6) return false
 
-        val ec = e.filterIndexed { index, c -> c != r[index] }
-        val rc = r.filterIndexed { index, c -> c != e[index] }
+        val ec = e.filterIndexed { index, c -> c != r.getOrNull(index) }
+        val rc = r.filterIndexed { index, c -> c != e.getOrNull(index) }
 
         if (listOf(ec, rc).flatten().none { !it.isDigit() && !whitespace.contains(it) }) {
             return (ec.firstOrNull { it.isDigit() }?.digitToInt() ?: 0) > (rc.firstOrNull { it.isDigit() }?.digitToInt() ?: 0)
