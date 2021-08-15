@@ -6,6 +6,7 @@ import mynameisjeff.skyblockclientupdater.SkyClientUpdater
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater.mc
 import mynameisjeff.skyblockclientupdater.gui.PromptUpdateScreen
 import net.minecraft.client.gui.GuiMainMenu
+import net.minecraft.util.Util
 import net.minecraftforge.client.event.GuiOpenEvent
 import net.minecraftforge.fml.common.eventhandler.EventPriority
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
@@ -13,7 +14,8 @@ import org.apache.commons.lang3.StringUtils
 import org.apache.http.HttpVersion
 import org.apache.http.client.methods.HttpGet
 import java.awt.Desktop
-import java.io.*
+import java.io.File
+import java.io.IOException
 import java.net.URL
 import kotlin.concurrent.thread
 
@@ -47,14 +49,13 @@ object UpdateChecker {
     }
 
     fun getLatestCommitID() {
-        try {
+        latestCommitID = try {
             val commits = JsonParser().parse(WebUtils.fetchResponse("https://api.github.com/repos/nacrt/SkyblockClient-REPO/commits")).asJsonArray
-            latestCommitID = commits[0].asJsonObject["sha"].asString
-        }
-        catch (ex: Throwable) {
+            commits[0].asJsonObject["sha"].asString
+        } catch (ex: Throwable) {
             println("Failed to load latest commit id")
             ex.printStackTrace()
-            latestCommitID = "main"
+            "main"
         }
     }
 
@@ -72,17 +73,23 @@ object UpdateChecker {
                         println("Copying ${item.second} to mod folder")
                         val newLocation = File(modDir, item.second)
                         newLocation.createNewFile()
-                        copyFile(newJar, newLocation)
+                        newJar.copyTo(newLocation, true)
                         newJar.delete()
+                    }
+                    val os = Util.getOSType()
+                    if ((os == Util.EnumOS.OSX || os == Util.EnumOS.LINUX) && needsDelete.removeAll { it.first.delete() } && needsDelete.isEmpty()) {
+                        println("Successfully deleted all files normally.")
+                        return@Thread
                     }
                     println("Running delete task")
                     if (deleteTask.path == "invalid") {
                         println("Task doesn't exist")
+                        Desktop.getDesktop().open(File(mc.mcDataDir, "mods"))
                         return@Thread
                     }
                     val runtime = getJavaRuntime()
                     println("Using runtime $runtime")
-                    if (net.minecraft.util.Util.getOSType() == net.minecraft.util.Util.EnumOS.OSX) {
+                    if (os == Util.EnumOS.OSX) {
                         val sipStatus = Runtime.getRuntime().exec("csrutil status")
                         sipStatus.waitFor()
                         if (!sipStatus.inputStream.readTextAndClose().contains("System Integrity Protection status: disabled.")) {
@@ -121,7 +128,7 @@ object UpdateChecker {
     fun getLatestMods() {
         var mods = JsonArray()
         try {
-            mods = JsonParser().parse(WebUtils.fetchResponse("https://rawcdn.githack.com/nacrt/SkyblockClient-REPO/$latestCommitID/files/mods.json")).asJsonArray
+            mods = JsonParser().parse(WebUtils.fetchResponse("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitID/files/mods.json")).asJsonArray
         }
         catch (ex: Throwable) {
             println("Failed to load mod files")
@@ -172,17 +179,15 @@ object UpdateChecker {
         println("Checking for SkyClientUpdater delete task...")
         val taskDir = File(File(mc.mcDataDir, "skyclientupdater"), "files")
         val url =
-            "https://cdn.discordapp.com/attachments/807303259902705685/841080571731640401/SkytilsInstaller-1.0-SNAPSHOT.jar"
-        val taskFileName = getJarNameFromUrl(url)
+            "https://cdn.discordapp.com/attachments/807303259902705685/864882597342740511/SkytilsInstaller-1.1-SNAPSHOT.jar"
         taskDir.mkdirs()
-        val existingTask = taskDir.listFiles()!!.find { it.name == taskFileName }
-        if (existingTask == null) {
+        val taskFile = File(taskDir, url.substringAfterLast("/"))
+        if (!taskFile.exists()) {
             thread(name = "Download SkyclientUpdater delete task") {
                 println("Downloading SkyClientUpdater delete task.")
                 WebUtils.builder.build().use {
                     val req = HttpGet(URL(url).toURI())
                     req.protocolVersion = HttpVersion.HTTP_1_1
-                    val taskFile = File(taskDir, taskFileName)
                     taskFile.createNewFile()
                     val res = it.execute(req)
                     if (res.statusLine.statusCode != 200) {
@@ -197,34 +202,8 @@ object UpdateChecker {
                 }
             }
         } else {
-            deleteTask = existingTask
+            deleteTask = taskFile
             println("SkyClientUpdater delete task found")
-        }
-    }
-
-    fun getJarNameFromUrl(url: String): String {
-        val sUrl = url.split("/".toRegex()).toTypedArray()
-        return sUrl[sUrl.size - 1]
-    }
-
-    private fun copyFile(sourceFile: File, destFile: File) {
-        if (!destFile.exists()) {
-            sourceFile.renameTo(destFile)
-            return
-        }
-        var source: InputStream? = null
-        var dest: OutputStream? = null
-        try {
-            source = FileInputStream(sourceFile)
-            dest = FileOutputStream(destFile)
-            val buffer = ByteArray(1024)
-            var length: Int
-            while (source.read(buffer).also { length = it } > 0) {
-                dest.write(buffer, 0, length)
-            }
-        } finally {
-            source!!.close()
-            dest!!.close()
         }
     }
 

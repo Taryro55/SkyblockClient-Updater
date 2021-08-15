@@ -7,7 +7,7 @@ plugins {
 
 ext.kotlin_version = "1.5.21"
 
-version = "1.0.8"
+version = "1.0.9"
 group = "mynameisjeff"
 archivesBaseName = "SkyblockClient-Updater"
 
@@ -67,7 +67,7 @@ processResources {
 task moveResources {
     doLast {
         ant.move file: "${buildDir}/resources/main",
-            todir: "${buildDir}/classes/java"
+            todir: "${buildDir}/classes/kotlin"
     }
 }
 
