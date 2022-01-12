@@ -12,7 +12,7 @@ plugins {
     java
 }
 
-version = "1.0.9"
+version = "1.1.0"
 group = "mynameisjeff"
 
 minecraft {
@@ -27,9 +27,13 @@ val shadowMe: Configuration by configurations.creating {
     configurations.implementation.get().extendsFrom(this)
 }
 
+repositories {
+    mavenCentral()
+}
+
 dependencies {
     shadowMe(kotlin("stdlib-jdk8"))
-    shadowMe(kotlin("reflect"))
+    //shadowMe(kotlin("reflect"))
     shadowMe("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     shadowMe("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
 }

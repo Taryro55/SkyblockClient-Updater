@@ -13,4 +13,5 @@ data class RepoMod(
     val updateURL: String = "https://github.com/nacrt/SkyblockClient-REPO/raw/main/files/mods/$fileName",
     val ignored: Boolean = false,
     val hasBrokenMCModInfo: Boolean = false,
+    val alwaysConsider: Boolean = false,
 )

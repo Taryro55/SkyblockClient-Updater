@@ -14,7 +14,9 @@ import mynameisjeff.skyblockclientupdater.gui.PromptUpdateScreen
 import net.minecraft.client.gui.GuiMainMenu
 import net.minecraft.util.Util
 import net.minecraftforge.client.event.GuiOpenEvent
-import net.minecraftforge.common.ForgeVersion
+import net.minecraftforge.fml.client.FMLClientHandler
+import net.minecraftforge.fml.common.Loader
+import net.minecraftforge.fml.common.ModContainer
 import net.minecraftforge.fml.common.eventhandler.EventPriority
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import org.apache.commons.lang3.StringUtils
@@ -125,24 +127,29 @@ object UpdateChecker {
         }
         val modFiles = (modDir.listFiles() ?: return).toMutableList()
 
-        val subModDir = File(modDir, ForgeVersion.mcVersion)
+        val subModDir = File(modDir, Loader.MC_VERSION)
         if (subModDir.isDirectory) {
             val versionModFiles = subModDir.listFiles()
             if (versionModFiles != null) modFiles.addAll(versionModFiles)
         }
+        val modList = ArrayList(Loader.instance().modList)
+        FMLClientHandler.instance().addSpecialModEntries(modList)
         installedMods.addAll(modFiles.filter { it.isFile && it.extension == "jar" }.map {
-            LocalMod(it, getModIds(it))
+            LocalMod(it, getModIds(modList, it))
         })
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    private fun getModIds(file: File): List<String>? {
-        return runCatching {
+    private fun getModIds(modList: List<ModContainer>, file: File): Set<String> {
+        val list = hashSetOf<String>()
+        runCatching {
+            modList.filter { it.source == file }.mapTo(list) { it.modId }
             JarFile(file).use { jarFile ->
                 val mcModInfo = json.decodeFromStream<List<MCMod>>(jarFile.getInputStream(jarFile.getJarEntry("mcmod.info") ?: return@runCatching null) ?: return@runCatching null)
-                return@runCatching mcModInfo.map { it.modId }
+                mcModInfo.mapTo(list) { it.modId }
             }
-        }.onFailure { it.printStackTrace() }.getOrNull()
+        }.onFailure { it.printStackTrace() }
+        return list
     }
 
     fun getLatestMods() {
@@ -168,13 +175,15 @@ object UpdateChecker {
     }
 
     private fun checkModId(localMod: LocalMod, repoMod: RepoMod): Boolean {
-        if (localMod.modIds == null && repoMod.modId == null) return true
-        if (localMod.modIds != null && repoMod.modId == null) return false
+        if (repoMod.alwaysConsider) return true
+        val localEmpty = localMod.modIds.isEmpty()
+        if (localEmpty && repoMod.modId == null) return true
+        if (!localEmpty && repoMod.modId == null) return false
 
         // some mods have invalid mcmod files
-        if (localMod.modIds == null && repoMod.hasBrokenMCModInfo) return true
+        if (localEmpty && repoMod.hasBrokenMCModInfo) return true
 
-        return localMod.modIds?.contains(repoMod.modId) == true
+        return localMod.modIds.contains(repoMod.modId)
     }
 
     private fun checkMatch(expected: String, received: String): Boolean {
@@ -190,9 +199,9 @@ object UpdateChecker {
         val ec = e.filterIndexed { index, c -> c != r.getOrNull(index) }
         val rc = r.filterIndexed { index, c -> c != e.getOrNull(index) }
 
-        if (listOf(ec, rc).flatten().none { !it.isDigit() && !whitespace.contains(it) }) {
-            val ed = ec.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString().toIntOrNull() ?: 0
-            val rd = rc.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString().toIntOrNull() ?: 0
+        if (listOf(ec, rc).flatten().all { it.isDigit() || whitespace.contains(it) }) {
+            val ed = ec.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString("").toIntOrNull() ?: 0
+            val rd = rc.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString("").toIntOrNull() ?: 0
             return ed > rd
         }
         return true
