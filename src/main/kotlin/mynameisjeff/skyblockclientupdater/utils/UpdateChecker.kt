@@ -8,6 +8,7 @@ import mynameisjeff.skyblockclientupdater.gui.PromptUpdateScreen
 import net.minecraft.client.gui.GuiMainMenu
 import net.minecraft.util.Util
 import net.minecraftforge.client.event.GuiOpenEvent
+import net.minecraftforge.common.ForgeVersion
 import net.minecraftforge.fml.common.eventhandler.EventPriority
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import org.apache.commons.lang3.StringUtils
@@ -117,7 +118,7 @@ object UpdateChecker {
         }
         val modFiles = (modDir.listFiles() ?: return).toMutableList()
 
-        val subModDir = File(modDir, "1.8.9")
+        val subModDir = File(modDir, ForgeVersion.mcVersion)
         if (subModDir.isDirectory) {
             val versionModFiles = subModDir.listFiles()
             if (versionModFiles != null) modFiles.addAll(versionModFiles)
@@ -161,8 +162,9 @@ object UpdateChecker {
         val exempt = charArrayOf('_', '-', '+', ' ', '.')
         val whitespace = charArrayOf('_', ' ', '.', '+')
 
-        val e = expected.toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
-        val r = received.toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
+        val e = expected.lowercase().toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
+        val r = received.lowercase().toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
+        if (e.joinToString().take(4) != r.joinToString().take(4)) return false
         val distance = StringUtils.getLevenshteinDistance(e.joinToString(), r.joinToString())
         if (distance !in 1..7) return false
 
