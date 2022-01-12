@@ -184,14 +184,16 @@ object UpdateChecker {
         val e = expected.lowercase().toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
         val r = received.lowercase().toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
         if (e.joinToString().take(4) != r.joinToString().take(4)) return false
-        val distance = StringUtils.getLevenshteinDistance(e.joinToString(), r.joinToString())
+        val distance = StringUtils.getLevenshteinDistance(e.joinToString(""), r.joinToString(""))
         if (distance !in 1..7) return false
 
         val ec = e.filterIndexed { index, c -> c != r.getOrNull(index) }
         val rc = r.filterIndexed { index, c -> c != e.getOrNull(index) }
 
         if (listOf(ec, rc).flatten().none { !it.isDigit() && !whitespace.contains(it) }) {
-            return (ec.firstOrNull { it.isDigit() }?.digitToInt() ?: 0) > (rc.firstOrNull { it.isDigit() }?.digitToInt() ?: 0)
+            val ed = ec.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString().toIntOrNull() ?: 0
+            val rd = rc.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString().toIntOrNull() ?: 0
+            return ed > rd
         }
         return true
     }
