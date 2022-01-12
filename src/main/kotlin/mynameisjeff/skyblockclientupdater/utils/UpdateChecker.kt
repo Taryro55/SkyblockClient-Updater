@@ -1,9 +1,15 @@
 package mynameisjeff.skyblockclientupdater.utils
 
-import com.google.gson.JsonArray
 import com.google.gson.JsonParser
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.decodeFromStream
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater
+import mynameisjeff.skyblockclientupdater.SkyClientUpdater.json
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater.mc
+import mynameisjeff.skyblockclientupdater.data.LocalMod
+import mynameisjeff.skyblockclientupdater.data.MCMod
+import mynameisjeff.skyblockclientupdater.data.RepoMod
 import mynameisjeff.skyblockclientupdater.gui.PromptUpdateScreen
 import net.minecraft.client.gui.GuiMainMenu
 import net.minecraft.util.Util
@@ -18,6 +24,7 @@ import java.awt.Desktop
 import java.io.File
 import java.io.IOException
 import java.net.URL
+import java.util.jar.JarFile
 import kotlin.concurrent.thread
 
 /**
@@ -27,11 +34,11 @@ import kotlin.concurrent.thread
  */
 object UpdateChecker {
 
-    val installedMods: ArrayList<File> = arrayListOf()
-    val latestMods = HashMap<String, String>()
-    val needsUpdate = HashSet<Triple<File, String, String>>()
+    val installedMods = arrayListOf<LocalMod>()
+    val latestMods = hashSetOf<RepoMod>()
+    val needsUpdate = hashSetOf<Triple<File, String, String>>()
 
-    val needsDelete = HashSet<Pair<File, String>>()
+    val needsDelete = hashSetOf<Pair<File, String>>()
 
     var latestCommitID: String = "main"
 
@@ -123,39 +130,51 @@ object UpdateChecker {
             val versionModFiles = subModDir.listFiles()
             if (versionModFiles != null) modFiles.addAll(versionModFiles)
         }
-        installedMods.addAll(modFiles.filter { it.isFile && it.extension == "jar" })
+        installedMods.addAll(modFiles.filter { it.isFile && it.extension == "jar" }.map {
+            LocalMod(it, getModIds(it))
+        })
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun getModIds(file: File): List<String>? {
+        return runCatching {
+            JarFile(file).use { jarFile ->
+                val mcModInfo = json.decodeFromStream<List<MCMod>>(jarFile.getInputStream(jarFile.getJarEntry("mcmod.info") ?: return@runCatching null) ?: return@runCatching null)
+                return@runCatching mcModInfo.map { it.modId }
+            }
+        }.onFailure { it.printStackTrace() }.getOrNull()
     }
 
     fun getLatestMods() {
-        var mods = JsonArray()
         try {
-            mods = JsonParser().parse(WebUtils.fetchResponse("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitID/files/mods.json")).asJsonArray
-        }
-        catch (ex: Throwable) {
+            latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtils.fetchResponse("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitID/files/mods.json")).filter { !it.ignored })
+        } catch (ex: Throwable) {
             println("Failed to load mod files")
             ex.printStackTrace()
-        }
-        
-        for (m in mods) {
-            val mod = m.asJsonObject
-            val name = mod.get("file").asString
-            if (name == "no") continue
-            val url = if (mod.has("url")) mod.get("url").asString else "https://github.com/nacrt/SkyblockClient-REPO/raw/main/files/mods/$name"
-            latestMods[name] = url
         }
     }
 
     fun getUpdateCandidates() {
-        val needsChecking = installedMods.filter { !latestMods.keys.contains(it.name) }
-        val allowedRemoteChecks = latestMods.keys.filter { installedMods.none { m -> m.name == it } }
-        loopMods@ for (modFile in needsChecking) {
-            val fileName = modFile.name
-            for (modEntry in allowedRemoteChecks) {
-                if (!checkMatch(modEntry, fileName)) continue
-                needsUpdate.add(Triple(modFile, modEntry, latestMods[modEntry]!!))
+        val needsChecking = installedMods.filter { latestMods.none { m -> m.fileName == it.file.name } }
+        val allowedRemoteChecks = latestMods.filter { installedMods.none { m -> m.file.name == it.fileName } }
+        loopMods@ for (localMod in needsChecking) {
+            val fileName = localMod.file.name
+            for (repoMod in allowedRemoteChecks) {
+                if (!checkModId(localMod, repoMod) || !checkMatch(repoMod.fileName, fileName)) continue
+                needsUpdate.add(Triple(localMod.file, repoMod.fileName, repoMod.updateURL))
                 continue@loopMods
             }
         }
+    }
+
+    private fun checkModId(localMod: LocalMod, repoMod: RepoMod): Boolean {
+        if (localMod.modIds == null && repoMod.modId == null) return true
+        if (localMod.modIds != null && repoMod.modId == null) return false
+
+        // some mods have invalid mcmod files
+        if (localMod.modIds == null && repoMod.hasBrokenMCModInfo) return true
+
+        return localMod.modIds?.contains(repoMod.modId) == true
     }
 
     private fun checkMatch(expected: String, received: String): Boolean {

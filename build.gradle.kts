@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "1.6.10"
+    kotlin("plugin.serialization") version "1.6.10"
     id("net.minecraftforge.gradle.forge") version "6f5327"
     id("com.github.johnrengelman.shadow") version "6.1.0"
     java
@@ -30,6 +31,7 @@ dependencies {
     shadowMe(kotlin("stdlib-jdk8"))
     shadowMe(kotlin("reflect"))
     shadowMe("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
+    shadowMe("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
 }
 
 sourceSets {
@@ -72,6 +74,7 @@ tasks {
         configurations = listOf(shadowMe)
 
         relocate("kotlinx.coroutines", "mynameisjeff.skyblockclientupdater.coroutines")
+        relocate("kotlinx.serialization", "mynameisjeff.skyblockclientupdater.json")
 
         exclude(
             "dummyThing",

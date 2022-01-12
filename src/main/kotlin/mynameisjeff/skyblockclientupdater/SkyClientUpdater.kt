@@ -1,5 +1,6 @@
 package mynameisjeff.skyblockclientupdater
 
+import kotlinx.serialization.json.Json
 import mynameisjeff.skyblockclientupdater.utils.UpdateChecker
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiScreen
@@ -15,8 +16,13 @@ object SkyClientUpdater {
 
     const val VERSION = "1.0.9"
 
-    val mc: Minecraft
-        get() = Minecraft.getMinecraft()
+    val mc: Minecraft by lazy {
+        Minecraft.getMinecraft()
+    }
+    val json = Json {
+        ignoreUnknownKeys = true
+    }
+
 
     var displayScreen: GuiScreen? = null
 
