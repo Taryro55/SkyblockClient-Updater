@@ -167,21 +167,19 @@ object UpdateChecker {
         loopMods@ for (localMod in needsChecking) {
             val fileName = localMod.file.name
             for (repoMod in allowedRemoteChecks) {
-                if (!checkModId(localMod, repoMod) || !checkMatch(repoMod.fileName, fileName)) continue
-                needsUpdate.add(Triple(localMod.file, repoMod.fileName, repoMod.updateURL))
-                continue@loopMods
+                if ((checkModId(localMod, repoMod) && checkNeedsUpdate(repoMod.fileName, fileName)) || (checkMatch(repoMod.fileName, fileName) && checkNeedsUpdate(repoMod.fileName, fileName)) )
+                {
+                    needsUpdate.add(Triple(localMod.file, repoMod.fileName, repoMod.updateURL))
+                    continue@loopMods
+                }
             }
         }
     }
 
     private fun checkModId(localMod: LocalMod, repoMod: RepoMod): Boolean {
         if (repoMod.alwaysConsider) return true
-        val localEmpty = localMod.modIds.isEmpty()
-        if (localEmpty && repoMod.modId == null) return true
-        if (!localEmpty && repoMod.modId == null) return false
 
-        // some mods have invalid mcmod files
-        if (localEmpty && repoMod.hasBrokenMCModInfo) return true
+        if (localMod.modIds.isEmpty() || repoMod.modId == null) return false
 
         return localMod.modIds.contains(repoMod.modId)
     }
@@ -195,13 +193,22 @@ object UpdateChecker {
         if (e.joinToString().take(4) != r.joinToString().take(4)) return false
         val distance = StringUtils.getLevenshteinDistance(e.joinToString(""), r.joinToString(""))
         if (distance !in 1..7) return false
+        return true
+    }
+
+    private fun checkNeedsUpdate(expected: String, received: String): Boolean {
+        val exempt = charArrayOf('_', '-', '+', ' ', '.')
+        val whitespace = charArrayOf('_', ' ', '.', '+')
+
+        val e = expected.lowercase().toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
+        val r = received.lowercase().toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
 
         val ec = e.filterIndexed { index, c -> c != r.getOrNull(index) }
         val rc = r.filterIndexed { index, c -> c != e.getOrNull(index) }
 
-        if (listOf(ec, rc).flatten().all { it.isDigit() || whitespace.contains(it) }) {
-            val ed = ec.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString("").toIntOrNull() ?: 0
-            val rd = rc.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString("").toIntOrNull() ?: 0
+        if (listOf(ec, rc).flatten().none { !it.isDigit() && !whitespace.contains(it) }) {
+            val ed = ec.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString().toIntOrNull() ?: 0
+            val rd = rc.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString().toIntOrNull() ?: 0
             return ed > rd
         }
         return true
