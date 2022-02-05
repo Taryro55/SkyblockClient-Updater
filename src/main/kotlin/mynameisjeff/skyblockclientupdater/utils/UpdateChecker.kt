@@ -140,7 +140,7 @@ object UpdateChecker {
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    private fun getModIds(modList: List<ModContainer>, file: File): Set<String> {
+    private fun getModIds(modList: List<ModContainer>, file: File): MutableSet<String> {
         val list = hashSetOf<String>()
         runCatching {
             modList.filter { it.source == file }.mapTo(list) { it.modId }
@@ -164,16 +164,62 @@ object UpdateChecker {
     fun getUpdateCandidates() {
         val needsChecking = installedMods.filter { latestMods.none { m -> m.fileName == it.file.name } }
         val allowedRemoteChecks = latestMods.filter { installedMods.none { m -> m.file.name == it.fileName } }
+        val checkedMods = ArrayList<String>()
+
         loopMods@ for (localMod in needsChecking) {
-            val fileName = localMod.file.name
             for (repoMod in allowedRemoteChecks) {
-                if ((checkModId(localMod, repoMod) && checkNeedsUpdate(repoMod.fileName, fileName)) || (checkMatch(repoMod.fileName, fileName) && checkNeedsUpdate(repoMod.fileName, fileName)) )
-                {
-                    needsUpdate.add(Triple(localMod.file, repoMod.fileName, repoMod.updateURL))
-                    continue@loopMods
+                if(checkModId(localMod, repoMod)) {
+                    for (updateToRepoMod in allowedRemoteChecks) {
+                        if (updateToRepoMod.modId.equals(repoMod.updateToId)) {
+                            checkedMods.add(updateToRepoMod.modId.toString())
+                            needsUpdate.add(Triple(localMod.file, updateToRepoMod.fileName, updateToRepoMod.updateURL))
+                            continue@loopMods
+                        }
+                    }
                 }
             }
         }
+
+        loopMods@ for (localMod in needsChecking) {
+            if (localMod.modIds.isNotEmpty() && checkedMods.contains(localMod.modIds.first().toString()))
+                continue@loopMods
+            val fileName = localMod.file.name
+            for (repoMod in allowedRemoteChecks) {
+                if (checkModId(localMod, repoMod) )
+                {
+                    checkedMods.add(localMod.file.name)
+                    if (checkNeedsUpdate(repoMod.fileName, fileName)) {
+                        needsUpdate.add(Triple(localMod.file, repoMod.fileName, repoMod.updateURL))
+                        continue@loopMods
+                    }
+                }
+            }
+        }
+
+        loopMods@ for (localMod in needsChecking) {
+            if (localMod.modIds.isNotEmpty() && checkedMods.contains(localMod.modIds.first().toString()))
+                continue@loopMods
+            val fileName = localMod.file.name
+            for (repoMod in allowedRemoteChecks) {
+                if (checkMatch(repoMod.fileName, fileName))
+                {
+                    checkedMods.add(localMod.file.name)
+                    if (checkNeedsUpdate(repoMod.fileName, fileName))
+                    {
+                        needsUpdate.add(Triple(localMod.file, repoMod.fileName, repoMod.updateURL))
+                        continue@loopMods
+                    }
+                }
+            }
+        }
+    }
+
+    private fun checkModElsewhere(localMod: LocalMod, repoMod: RepoMod): Boolean {
+        if (repoMod.alwaysConsider) return true
+
+        if (localMod.modIds.isEmpty() || repoMod.modId == null) return false
+
+        return localMod.modIds.contains(repoMod.updateToId)
     }
 
     private fun checkModId(localMod: LocalMod, repoMod: RepoMod): Boolean {
@@ -206,9 +252,9 @@ object UpdateChecker {
         val ec = e.filterIndexed { index, c -> c != r.getOrNull(index) }
         val rc = r.filterIndexed { index, c -> c != e.getOrNull(index) }
 
-        if (listOf(ec, rc).flatten().none { !it.isDigit() && !whitespace.contains(it) }) {
-            val ed = ec.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString().toIntOrNull() ?: 0
-            val rd = rc.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString().toIntOrNull() ?: 0
+        if (listOf(ec, rc).flatten().all { it.isDigit() || whitespace.contains(it) }) {
+            val ed = ec.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString("").toIntOrNull() ?: 0
+            val rd = rc.dropWhile { !it.isDigit() }.takeWhile { it.isDigit() }.joinToString("").toIntOrNull() ?: 0
             return ed > rd
         }
         return true
