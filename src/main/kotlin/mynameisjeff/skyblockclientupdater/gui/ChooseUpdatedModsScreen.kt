@@ -35,8 +35,8 @@ class ChooseUpdatedModsScreen : GuiScreen() {
         }
         if (button.id == 9000) {
             val list = list.entries.filter { it.needsUpdate }.map { UpdateChecker.needsUpdate.find { e -> e.second == it.newFile }!! }
-            if (list.isNotEmpty()) mc.displayGuiScreen(UpdateScreen(list))
-            else mc.displayGuiScreen(GuiMainMenu())
+            if (list.isNotEmpty()) {mc.displayGuiScreen(UpdateScreen(list))}
+            else {mc.displayGuiScreen(GuiMainMenu())}
         }
         if (button.id == 9001) {
             UpdateChecker.needsUpdate.clear()
