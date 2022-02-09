@@ -14,7 +14,7 @@ import net.minecraftforge.fml.common.gameevent.TickEvent
 @Mod(modid = "skyblockclientupdater", name = "SkyClient Updater", version = SkyClientUpdater.VERSION, clientSideOnly = true, modLanguage = "kotlin", modLanguageAdapter = "mynameisjeff.skyblockclientupdater.utils.kotlin.KotlinAdapter")
 object SkyClientUpdater {
 
-    const val VERSION = "1.1.1"
+    const val VERSION = "1.1.2"
 
     val mc: Minecraft by lazy {
         Minecraft.getMinecraft()
