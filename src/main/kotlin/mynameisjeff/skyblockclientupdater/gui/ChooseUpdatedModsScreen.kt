@@ -39,6 +39,7 @@ class ChooseUpdatedModsScreen : GuiScreen() {
                 mc.displayGuiScreen(UpdateScreen(list))
             }
             else {
+                UpdateChecker.needsUpdate.clear()
                 mc.displayGuiScreen(GuiMainMenu())
             }
         }
