@@ -162,29 +162,35 @@ object UpdateChecker {
     }
 
     fun getUpdateCandidates() {
-        val needsChecking = installedMods.filter { latestMods.none { m -> m.fileName == it.file.name } }
-        val allowedRemoteChecks = latestMods.filter { installedMods.none { m -> m.file.name == it.fileName } }
         val checkedMods = ArrayList<String>()
 
-        loopMods@ for (localMod in needsChecking) {
-            for (repoMod in allowedRemoteChecks) {
-                if(checkModId(localMod, repoMod)) {
-                    for (updateToRepoMod in allowedRemoteChecks) {
-                        if (updateToRepoMod.modId.equals(repoMod.updateToId)) {
-                            checkedMods.add(updateToRepoMod.modId.toString())
+        // update to mod id loop
+        for (localMod in installedMods) {
+            for (repoMod in latestMods) {
+                if(checkModId(localMod, repoMod) && repoMod.updateToIds.isNotEmpty()) {
+                    for (updateToId in repoMod.updateToIds) {
+                        // mark the mod as updated
+                        checkedMods.add(localMod.file.name)
+                        // get the update to mod
+                        var updateToRepoMod = getRepoModFromID(latestMods, updateToId)
+                        if (updateToRepoMod != null) {
                             needsUpdate.add(Triple(localMod.file, updateToRepoMod.fileName, updateToRepoMod.updateURL))
-                            continue@loopMods
                         }
                     }
                 }
             }
         }
 
-        loopMods@ for (localMod in needsChecking) {
+        val localModsList = installedMods.filter { latestMods.none { m -> m.fileName == it.file.name } }
+        val repoModList = latestMods.filter { installedMods.none { m -> m.file.name == it.fileName } }
+
+
+        // mod id checking loop
+        loopMods@ for (localMod in localModsList) {
             if (localMod.modIds.isNotEmpty() && checkedMods.contains(localMod.modIds.first().toString()))
                 continue@loopMods
             val fileName = localMod.file.name
-            for (repoMod in allowedRemoteChecks) {
+            for (repoMod in repoModList) {
                 if (checkModId(localMod, repoMod) )
                 {
                     checkedMods.add(localMod.file.name)
@@ -196,11 +202,12 @@ object UpdateChecker {
             }
         }
 
-        loopMods@ for (localMod in needsChecking) {
+        // file name checking loop
+        loopMods@ for (localMod in localModsList) {
             if (localMod.modIds.isNotEmpty() && checkedMods.contains(localMod.modIds.first().toString()))
                 continue@loopMods
             val fileName = localMod.file.name
-            for (repoMod in allowedRemoteChecks) {
+            for (repoMod in repoModList) {
                 if (checkMatch(repoMod.fileName, fileName))
                 {
                     checkedMods.add(localMod.file.name)
@@ -214,12 +221,13 @@ object UpdateChecker {
         }
     }
 
-    private fun checkModElsewhere(localMod: LocalMod, repoMod: RepoMod): Boolean {
-        if (repoMod.alwaysConsider) return true
-
-        if (localMod.modIds.isEmpty() || repoMod.modId == null) return false
-
-        return localMod.modIds.contains(repoMod.updateToId)
+    private fun getRepoModFromID(repoModList: HashSet<RepoMod>, modId: String): RepoMod? {
+        loopMods@ for (repoMod in repoModList) {
+            if(repoMod.modId == modId) {
+                return  repoMod
+            }
+        }
+        return null
     }
 
     private fun checkModId(localMod: LocalMod, repoMod: RepoMod): Boolean {
