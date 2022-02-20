@@ -42,7 +42,7 @@ object UpdateChecker {
 
     val needsDelete = hashSetOf<Pair<File, String>>()
 
-    var latestCommitID: String = "main"
+    var latestCommitID: String = "develop"
 
     private var addedShutdownHook = false
 
