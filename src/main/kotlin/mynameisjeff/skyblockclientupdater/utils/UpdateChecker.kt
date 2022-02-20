@@ -60,7 +60,7 @@ object UpdateChecker {
 
     fun getLatestCommitID() {
         latestCommitID = try {
-            val commits = JsonParser().parse(WebUtils.fetchResponse("https://api.github.com/repos/nacrt/SkyblockClient-REPO/commits")).asJsonArray
+            val commits = JsonParser().parse(WebUtils.fetchResponse("https://api.github.com/repos/Taryro55/SkyblockClient-REPO/commits")).asJsonArray
             commits[0].asJsonObject["sha"].asString
         } catch (ex: Throwable) {
             println("Failed to load latest commit id")
@@ -154,7 +154,7 @@ object UpdateChecker {
 
     fun getLatestMods() {
         try {
-            latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtils.fetchResponse("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitID/files/mods.json")).filter { !it.ignored })
+            latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtils.fetchResponse("https://cdn.jsdelivr.net/gh/Taryro55/SkyblockClient-REPO@$latestCommitID/files/mods.json")).filter { !it.ignored })
         } catch (ex: Throwable) {
             println("Failed to load mod files")
             ex.printStackTrace()
