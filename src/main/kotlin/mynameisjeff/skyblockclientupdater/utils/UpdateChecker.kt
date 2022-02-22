@@ -1,10 +1,10 @@
 package mynameisjeff.skyblockclientupdater.utils
 
 import com.google.gson.JsonParser
+import gg.essential.api.EssentialAPI
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.decodeFromStream
-import mynameisjeff.skyblockclientupdater.SkyClientUpdater
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater.json
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater.mc
 import mynameisjeff.skyblockclientupdater.data.LocalMod
@@ -22,6 +22,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import org.apache.commons.lang3.StringUtils
 import org.apache.http.HttpVersion
 import org.apache.http.client.methods.HttpGet
+import org.apache.logging.log4j.LogManager
 import java.awt.Desktop
 import java.io.File
 import java.io.IOException
@@ -35,6 +36,7 @@ import kotlin.concurrent.thread
  * https://github.com/Skytils/SkytilsMod/blob/1.x/LICENSE
  */
 object UpdateChecker {
+    private val logger = LogManager.getLogger("SkyClientUpdater (UpdateChecker)")
 
     val installedMods = arrayListOf<LocalMod>()
     val latestMods = hashSetOf<RepoMod>()
@@ -42,29 +44,37 @@ object UpdateChecker {
 
     val needsDelete = hashSetOf<Pair<File, String>>()
 
-    var latestCommitID: String = "main"
+    var latestCommitId = "main"
 
     private var addedShutdownHook = false
 
     lateinit var deleteTask: File
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
-    fun on(event: GuiOpenEvent) {
+    fun onGuiOpened(event: GuiOpenEvent) {
         if (event.gui !is GuiMainMenu) return
         if (needsUpdate.isEmpty()) return
 
         TickTask(2) {
-            SkyClientUpdater.displayScreen = PromptUpdateScreen()
+            EssentialAPI.getGuiUtil().openScreen(PromptUpdateScreen())
         }
     }
 
-    fun getLatestCommitID() {
-        latestCommitID = try {
-            val commits = JsonParser().parse(WebUtils.fetchResponse("https://api.github.com/repos/nacrt/SkyblockClient-REPO/commits")).asJsonArray
+    fun updateLatestCommitId() {
+        latestCommitId = try {
+            val commits = JsonParser().parse(
+                WebUtils.fetchResponse(
+                    "https://api.github.com/repos/${
+                        System.getProperty(
+                            "scu.repo",
+                            "nacrt/SkyblockClient-REPO"
+                        )
+                    }/commits"
+                )
+            ).asJsonArray
             commits[0].asJsonObject["sha"].asString
         } catch (ex: Throwable) {
-            println("Failed to load latest commit id")
-            ex.printStackTrace()
+            logger.error("Failed to fetch latest commit ID.", ex)
             "main"
         }
     }
@@ -74,13 +84,13 @@ object UpdateChecker {
             addedShutdownHook = true
             Runtime.getRuntime().addShutdownHook(Thread {
                 try {
-                    println("Attempting to apply SkyClient updates.")
-                    println("Copying updated jars to mods.")
+                    logger.info("Attempting to apply SkyClient updates.")
+                    logger.info("Copying updated jars to mods.")
                     val directory = File(File(mc.mcDataDir, "skyclientupdater"), "updates")
                     val modDir = File(mc.mcDataDir, "mods")
                     for (item in needsDelete) {
                         val newJar = File(directory, item.second)
-                        println("Copying ${item.second} to mod folder")
+                        logger.info("Copying ${item.second} to mod folder")
                         val newLocation = File(modDir, item.second)
                         newLocation.createNewFile()
                         newJar.copyTo(newLocation, true)
@@ -88,31 +98,30 @@ object UpdateChecker {
                     }
                     val os = Util.getOSType()
                     if ((os == Util.EnumOS.OSX || os == Util.EnumOS.LINUX) && needsDelete.removeAll { it.first.delete() } && needsDelete.isEmpty()) {
-                        println("Successfully deleted all files normally.")
+                        logger.info("Successfully deleted all files normally.")
                         return@Thread
                     }
-                    println("Running delete task")
+                    logger.info("Running delete task")
                     if (deleteTask.path == "invalid") {
-                        println("Task doesn't exist")
+                        logger.info("Task doesn't exist")
                         Desktop.getDesktop().open(File(mc.mcDataDir, "mods"))
                         return@Thread
                     }
                     val runtime = getJavaRuntime()
-                    println("Using runtime $runtime")
+                    logger.info("Using runtime $runtime")
                     if (os == Util.EnumOS.OSX) {
                         val sipStatus = Runtime.getRuntime().exec("csrutil status")
                         sipStatus.waitFor()
                         if (!sipStatus.inputStream.readTextAndClose().contains("System Integrity Protection status: disabled.")) {
-                            println("SIP is NOT disabled, opening Finder.")
+                            logger.info("SIP is NOT disabled, opening Finder.")
                             Desktop.getDesktop().open(File(mc.mcDataDir, "mods"))
                             return@Thread
                         }
                     }
                     Runtime.getRuntime().exec("\"$runtime\" -jar \"${deleteTask.absolutePath}\" ${needsDelete.joinToString(" ") {"\"${it.first.absolutePath}\""}}")
-                    println("Successfully applied SkyClient mod update.")
+                    logger.info("Successfully applied SkyClient mod update.")
                 } catch (ex: Throwable) {
-                    println("Failed to apply SkyClient mod Update.")
-                    ex.printStackTrace()
+                    logger.error("Failed to apply SkyClient mod Update.", ex)
                 }
             })
         }
@@ -121,10 +130,7 @@ object UpdateChecker {
 
     fun getValidModFiles() {
         val modDir = File(mc.mcDataDir, "mods")
-        if (!modDir.isDirectory && !modDir.mkdirs()) {
-            println("Mods directory not found (bug).")
-            return
-        }
+        if (!modDir.isDirectory && !modDir.mkdirs()) logger.warn("Mods directory not found.").also { return }
         val modFiles = (modDir.listFiles() ?: return).toMutableList()
 
         val subModDir = File(modDir, Loader.MC_VERSION)
@@ -132,6 +138,7 @@ object UpdateChecker {
             val versionModFiles = subModDir.listFiles()
             if (versionModFiles != null) modFiles.addAll(versionModFiles)
         }
+
         val modList = ArrayList(Loader.instance().modList)
         FMLClientHandler.instance().addSpecialModEntries(modList)
         installedMods.addAll(modFiles.filter { it.isFile && it.extension == "jar" }.map {
@@ -154,7 +161,7 @@ object UpdateChecker {
 
     fun getLatestMods() {
         try {
-            latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtils.fetchResponse("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitID/files/mods.json")).filter { !it.ignored })
+            latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtils.fetchResponse("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitId/files/mods.json")).filter { !it.ignored })
         } catch (ex: Throwable) {
             println("Failed to load mod files")
             ex.printStackTrace()
@@ -269,7 +276,7 @@ object UpdateChecker {
     }
 
     fun downloadHelperTask() {
-        println("Checking for SkyClientUpdater delete task...")
+        logger.info("Checking for SkyClientUpdater delete task...")
         val taskDir = File(File(mc.mcDataDir, "skyclientupdater"), "files")
         val url =
             "https://cdn.discordapp.com/attachments/807303259902705685/864882597342740511/SkytilsInstaller-1.1-SNAPSHOT.jar"
@@ -277,26 +284,26 @@ object UpdateChecker {
         val taskFile = File(taskDir, url.substringAfterLast("/"))
         if (!taskFile.exists()) {
             thread(name = "Download SkyclientUpdater delete task") {
-                println("Downloading SkyClientUpdater delete task.")
+                logger.info("Downloading SkyClientUpdater delete task.")
                 WebUtils.builder.build().use {
                     val req = HttpGet(URL(url).toURI())
                     req.protocolVersion = HttpVersion.HTTP_1_1
                     taskFile.createNewFile()
                     val res = it.execute(req)
                     if (res.statusLine.statusCode != 200) {
-                        println("Downloading SkyClientUpdater delete task failed!")
+                        logger.info("Downloading SkyClientUpdater delete task failed!")
                         deleteTask = File("invalid")
                     } else {
-                        println("Writing SkyClientUpdater delete task.")
+                        logger.info("Writing SkyClientUpdater delete task.")
                         res.entity.writeTo(taskFile.outputStream())
                         deleteTask = taskFile
-                        println("SkyClientUpdater delete task successfully downloaded!")
+                        logger.info("SkyClientUpdater delete task successfully downloaded!")
                     }
                 }
             }
         } else {
             deleteTask = taskFile
-            println("SkyClientUpdater delete task found")
+            logger.info("SkyClientUpdater delete task found")
         }
     }
 
@@ -309,9 +316,7 @@ object UpdateChecker {
         val java = "${System.getProperty("java.home")}${File.separator}bin${File.separator}${
             if (os != null && os.lowercase().startsWith("windows")) "java.exe" else "java"
         }"
-        if (!File(java).isFile) {
-            throw IOException("Unable to find suitable java runtime at $java")
-        }
+        if (!File(java).isFile) throw IOException("Unable to find suitable java runtime at $java")
         return java
     }
 }

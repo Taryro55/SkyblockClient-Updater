@@ -3,13 +3,10 @@ package mynameisjeff.skyblockclientupdater
 import kotlinx.serialization.json.Json
 import mynameisjeff.skyblockclientupdater.utils.UpdateChecker
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiScreen
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.common.ProgressManager
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
-import net.minecraftforge.fml.common.gameevent.TickEvent
 
 @Mod(
     name = "SkyClient Updater",
@@ -38,7 +35,7 @@ import net.minecraftforge.fml.common.gameevent.TickEvent
         progress.step("Discovering mods")
         UpdateChecker.getValidModFiles()
         progress.step("Fetching latest commit ID")
-        UpdateChecker.getLatestCommitID()
+        UpdateChecker.updateLatestCommitId()
         progress.step("Fetching latest versions")
         UpdateChecker.getLatestMods()
         progress.step("Comparing versions")
