@@ -17,9 +17,10 @@ import java.awt.Color
 class SexyButton(
     text: String,
     outlineColor: Color = SkyClientUpdater.accentColor,
+    primary: Boolean = true,
     playClickSound: Boolean = true
 ) : UIComponent() {
-    private val background = UIBlock(Color(31, 31, 31)).constrain {
+    private val background = UIBlock(if (primary) Color(15, 15, 15) else Color(21, 21, 21)).constrain {
         width = RelativeConstraint()
         height = RelativeConstraint()
     } effect OutlineEffect(Color(0, 0, 0, 0), 1f) childOf this

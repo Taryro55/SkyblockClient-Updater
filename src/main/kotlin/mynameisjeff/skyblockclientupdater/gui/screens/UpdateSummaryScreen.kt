@@ -71,7 +71,11 @@ class UpdateSummaryScreen(
         width = ChildBasedSizeConstraint()
         height = ChildBasedSizeConstraint()
     } childOf footerContainer
-    private val quitButton = SexyButton("Quit Game", Color.RED).constrain {
+    private val quitButton = SexyButton(
+        text = "Quit Game",
+        outlineColor = Color.RED,
+        primary = false
+    ).constrain {
         width = 150.pixels()
         height = 20.pixels()
     }.onMouseClick {

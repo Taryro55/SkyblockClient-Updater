@@ -30,6 +30,7 @@ import java.awt.Color
 
     @Mod.EventHandler
     fun on(event: FMLPreInitializationEvent) {
+        MinecraftForge.EVENT_BUS.register(EventListener())
         MinecraftForge.EVENT_BUS.register(UpdateChecker)
 
         val progress = ProgressManager.push("SkyClient Updater", 5)

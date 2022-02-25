@@ -50,13 +50,17 @@ class ModUpdateScreen(
     }.onMouseClick {
         displayScreen(DownloadProgressScreen(updating as HashSet<Triple<File, String, String>>))
     } childOf buttonContainer
-    val exitButton = SexyButton("Main Menu", Color.RED).constrain {
+    val exitButton = SexyButton(
+        text = "Main Menu",
+        outlineColor = Color.RED,
+        primary = false
+    ).constrain {
         width = 150.pixels()
         height = 20.pixels()
         x = SiblingConstraint(7.5f)
     }.onMouseClick {
         UpdateChecker.ignoreUpdates()
-        displayScreen(GuiMainMenu())
+        restorePreviousScreen()
     } childOf buttonContainer
 
     init {

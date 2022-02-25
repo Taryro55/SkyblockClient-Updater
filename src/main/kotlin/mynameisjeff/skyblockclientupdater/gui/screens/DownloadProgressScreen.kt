@@ -64,7 +64,11 @@ class DownloadProgressScreen(
         width = ChildBasedSizeConstraint()
         height = ChildBasedSizeConstraint()
     } childOf footerContainer
-    private val cancelButton = SexyButton("Cancel", Color.RED).constrain {
+    private val cancelButton = SexyButton(
+        text = "Cancel",
+        outlineColor = Color.RED,
+        primary = false
+    ).constrain {
         x = CenterConstraint()
         y = CenterConstraint()
         width = 150.pixels()
@@ -151,7 +155,17 @@ class DownloadProgressScreen(
     override fun onDrawScreen(matrixStack: UMatrixStack, mouseX: Int, mouseY: Int, partialTicks: Float) {
         super.onDrawScreen(matrixStack, mouseX, mouseY, partialTicks)
         when {
-            exited -> displayScreen(GuiMainMenu())
+            exited -> {
+                val directory = File(File(SkyClientUpdater.mc.mcDataDir, "skyclientupdater"), "updates")
+                if (directory.exists()) {
+                    directory.listFiles()?.let {
+                        for (file in it) {
+                            file.delete()
+                        }
+                    }
+                }
+                displayScreen(GuiMainMenu())
+            }
             successfullyUpdated.size + failedUpdated.size == updating.size -> {
                 TickTask(5) {
                     displayScreen(

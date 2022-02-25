@@ -43,7 +43,6 @@ class ModUpdateComponent(
             if (updating.contains(update)) {
                 seperatorText.animate { setColorAnimation(Animations.OUT_EXP, 1f, Color(245, 66, 66).toConstraint()) }
                 newFileText.setText("${ChatColor.GREEN}${ChatColor.STRIKETHROUGH}${update.second}")
-                println("New file text was set to: ${newFileText.getText()}")
                 updating.remove(update)
             } else {
                 seperatorText.animate { setColorAnimation(Animations.OUT_EXP, 1f, Color(66, 245, 93).toConstraint()) }
