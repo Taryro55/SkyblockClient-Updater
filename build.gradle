@@ -6,7 +6,7 @@ plugins {
     id("java")
 }
 
-archivesBaseName = "SkyClient-Updater"
+archivesBaseName = "SkyblockClient-Updater"
 version = "1.2.0"
 group = "mynameisjeff"
 
