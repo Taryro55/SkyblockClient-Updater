@@ -23,11 +23,11 @@ class ModUpdateComponent(
         x = SiblingConstraint(2f)
     } childOf this
     val seperatorText = UIText("${ChatColor.BOLD}\u279C").constrain {
-        color = Color.GREEN.toConstraint()
+        color = Color(66, 245, 93).toConstraint()
     } childOf seperatorContainer
     val newFileText = UIText("${ChatColor.GREEN}${update.second}").constrain {
         x = SiblingConstraint(2f)
-        color = Color(66, 245, 93).toConstraint()
+        color = SkyClientUpdater.accentColor.toConstraint()
     } childOf this
 
     init {
@@ -42,9 +42,12 @@ class ModUpdateComponent(
         }.onMouseClick {
             if (updating.contains(update)) {
                 seperatorText.animate { setColorAnimation(Animations.OUT_EXP, 1f, Color(245, 66, 66).toConstraint()) }
+                newFileText.setText("${ChatColor.GREEN}${ChatColor.STRIKETHROUGH}${update.second}")
+                println("New file text was set to: ${newFileText.getText()}")
                 updating.remove(update)
             } else {
                 seperatorText.animate { setColorAnimation(Animations.OUT_EXP, 1f, Color(66, 245, 93).toConstraint()) }
+                newFileText.setText("${ChatColor.GREEN}${update.second}")
                 updating.add(update)
             }
         }
