@@ -1,6 +1,5 @@
 package mynameisjeff.skyblockclientupdater.gui.screens
 
-import gg.essential.api.utils.Multithreading
 import gg.essential.elementa.components.UIBlock
 import gg.essential.elementa.components.UIContainer
 import gg.essential.elementa.components.UIText
@@ -130,8 +129,8 @@ class DownloadProgressScreen(
                         var count: Int
                         val progress = BasicState(0L)
                         progress.onSetValue {
-                            progressBar.animate {
-                                Multithreading.runAsync {
+                            Multithreading.runAsync {
+                                progressBar.animate {
                                     setWidthAnimation(
                                         Animations.OUT_EXP,
                                         0.5f,
