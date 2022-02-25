@@ -7,6 +7,7 @@ import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.common.ProgressManager
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent
+import java.awt.Color
 
 @Mod(
     name = "SkyClient Updater",
@@ -17,6 +18,8 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent
     modLanguageAdapter = "gg.essential.api.utils.KotlinAdapter"
 ) object SkyClientUpdater {
     const val VERSION = "@VERSION@"
+
+    val accentColor = Color(67, 184, 0)
 
     val mc: Minecraft by lazy {
         Minecraft.getMinecraft()

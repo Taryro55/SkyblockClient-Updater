@@ -10,7 +10,7 @@ import mynameisjeff.skyblockclientupdater.SkyClientUpdater.mc
 import mynameisjeff.skyblockclientupdater.data.LocalMod
 import mynameisjeff.skyblockclientupdater.data.MCMod
 import mynameisjeff.skyblockclientupdater.data.RepoMod
-import mynameisjeff.skyblockclientupdater.gui.PromptUpdateScreen
+import mynameisjeff.skyblockclientupdater.gui.screens.ModUpdateScreen
 import net.minecraft.client.gui.GuiMainMenu
 import net.minecraft.util.Util
 import net.minecraftforge.client.event.GuiOpenEvent
@@ -45,6 +45,7 @@ object UpdateChecker {
     val needsDelete = hashSetOf<Pair<File, String>>()
 
     var latestCommitId = "main"
+    private var ignoreUpdates = false
 
     private var addedShutdownHook = false
 
@@ -52,12 +53,14 @@ object UpdateChecker {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     fun onGuiOpened(event: GuiOpenEvent) {
-        if (event.gui !is GuiMainMenu) return
-        if (needsUpdate.isEmpty()) return
-
+        if (event.gui !is GuiMainMenu || ignoreUpdates || needsUpdate.isEmpty()) return
         TickTask(2) {
-            EssentialAPI.getGuiUtil().openScreen(PromptUpdateScreen())
+            EssentialAPI.getGuiUtil().openScreen(ModUpdateScreen(needsUpdate))
         }
+    }
+
+    fun ignoreUpdates() {
+        ignoreUpdates = true
     }
 
     fun updateLatestCommitId() {
@@ -163,8 +166,7 @@ object UpdateChecker {
         try {
             latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtils.fetchResponse("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitId/files/mods.json")).filter { !it.ignored })
         } catch (ex: Throwable) {
-            println("Failed to load mod files")
-            ex.printStackTrace()
+            logger.error("Failed to load mod files.", ex)
         }
     }
 
@@ -179,7 +181,7 @@ object UpdateChecker {
                         // mark the mod as updated
                         checkedMods.add(localMod.file.name)
                         // get the update to mod
-                        var updateToRepoMod = getRepoModFromID(latestMods, updateToId)
+                        val updateToRepoMod = getRepoModFromID(latestMods, updateToId)
                         if (updateToRepoMod != null) {
                             needsUpdate.add(Triple(localMod.file, updateToRepoMod.fileName, updateToRepoMod.updateURL))
                         }
