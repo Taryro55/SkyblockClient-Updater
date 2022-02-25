@@ -33,9 +33,9 @@ class EventListener {
 
     private fun generateButtonId(buttonList: List<GuiButton> = listOf()): Int {
         var buttonId = abs(SecureRandom.getInstanceStrong().nextInt())
-        logger.warn("Generating a secure button ID for the SkyClientUpdater button. (currently: $buttonId)")
+        logger.info("Generating a secure button ID for the SkyClientUpdater button. (currently: $buttonId)")
         if (buttonList.any { it.id == buttonId }) buttonId = generateButtonId(buttonList)
-        logger.warn("Valid button ID found. ($buttonId)")
+        logger.info("Valid button ID found. ($buttonId)")
         return buttonId
     }
 }

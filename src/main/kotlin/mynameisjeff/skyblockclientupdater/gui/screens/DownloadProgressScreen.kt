@@ -7,8 +7,10 @@ import gg.essential.elementa.components.UIText
 import gg.essential.elementa.constraints.CenterConstraint
 import gg.essential.elementa.constraints.ChildBasedSizeConstraint
 import gg.essential.elementa.constraints.SiblingConstraint
+import gg.essential.elementa.constraints.animation.Animations
 import gg.essential.elementa.dsl.*
 import gg.essential.elementa.effects.OutlineEffect
+import gg.essential.elementa.state.BasicState
 import gg.essential.universal.UMatrixStack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,7 +27,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.nio.channels.Channels
 import kotlin.concurrent.thread
 
 class DownloadProgressScreen(
@@ -54,7 +55,6 @@ class DownloadProgressScreen(
         height = 10.pixels()
     } effect OutlineEffect(Color.BLACK, 2f) childOf contentContainer
     val progressBar = UIBlock(SkyClientUpdater.accentColor).constrain {
-        x = CenterConstraint()
         height = 10.pixels()
     } childOf progressBarContainer
 
@@ -103,6 +103,7 @@ class DownloadProgressScreen(
 
     private fun downloadUpdate(update: Triple<File, String, String>, file: File) {
         try {
+            currentlyUpdatingText.setText(update.second)
             val logger = LogManager.getLogger("SkyClientUpdater (Update Downloader)")
             val st = URL(update.third).openConnection() as HttpURLConnection
             st.setRequestProperty(
@@ -125,24 +126,25 @@ class DownloadProgressScreen(
             st.inputStream.use { stream ->
                 BufferedInputStream(stream).use { bufferedStream ->
                     FileOutputStream(file).use { output ->
-                        currentlyUpdatingText.setText(update.second)
-
                         val data = ByteArray(1024)
                         var count: Int
-                        var progress: Long = 0
-                        while (bufferedStream.read(data, 0, 1024).also { count = it } != -1) {
-                            progress += count
+                        val progress = BasicState(0L)
+                        progress.onSetValue {
                             Multithreading.runAsync {
                                 progressBar.animate {
-                                    width = ((if (progress == 0L) 1 else progress / st.contentLengthLong) * 200).pixels()
+                                    setWidthAnimation(
+                                        Animations.OUT_EXP,
+                                        0.5f,
+                                        ((if (it == 0L) 1 else it / st.contentLengthLong) * 200).pixels()
+                                    )
                                 }
                             }
-
-                            output.write(data, 0, count)
                         }
 
-                        output.flush()
-                        output.close()
+                        while (bufferedStream.read(data, 0, 1024).also { count = it } != -1) {
+                            progress.set(progress.get() + count)
+                            output.write(data, 0, count)
+                        }
                     }
                 }
             }
