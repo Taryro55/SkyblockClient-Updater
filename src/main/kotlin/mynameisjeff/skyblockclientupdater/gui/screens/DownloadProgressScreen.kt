@@ -1,5 +1,6 @@
 package mynameisjeff.skyblockclientupdater.gui.screens
 
+import gg.essential.api.utils.Multithreading
 import gg.essential.elementa.components.UIBlock
 import gg.essential.elementa.components.UIContainer
 import gg.essential.elementa.components.UIText
