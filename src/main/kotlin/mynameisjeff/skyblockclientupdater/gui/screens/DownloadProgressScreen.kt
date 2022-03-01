@@ -153,7 +153,6 @@ class DownloadProgressScreen(
                 file.length().let { size ->
                     if (size != currentProgress) {
                         currentProgress = size
-                        println("$size/$totalSize")
                         progressBar.animate {
                             setWidthAnimation(
                                 Animations.OUT_EXP,
