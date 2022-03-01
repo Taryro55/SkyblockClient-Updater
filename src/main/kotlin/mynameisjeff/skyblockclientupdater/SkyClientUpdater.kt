@@ -14,7 +14,6 @@ import java.awt.Color
     version = SkyClientUpdater.VERSION,
     modid = "skyblockclientupdater",
     clientSideOnly = true,
-    modLanguage = "kotlin",
     modLanguageAdapter = "gg.essential.api.utils.KotlinAdapter"
 ) object SkyClientUpdater {
     const val VERSION = "@VERSION@"

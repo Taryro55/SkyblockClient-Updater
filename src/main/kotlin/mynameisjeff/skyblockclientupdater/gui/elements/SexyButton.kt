@@ -6,12 +6,12 @@ import gg.essential.elementa.components.UIText
 import gg.essential.elementa.constraints.CenterConstraint
 import gg.essential.elementa.constraints.RelativeConstraint
 import gg.essential.elementa.constraints.animation.Animations
-import gg.essential.elementa.dsl.*
+import gg.essential.elementa.dsl.childOf
+import gg.essential.elementa.dsl.constrain
+import gg.essential.elementa.dsl.effect
 import gg.essential.elementa.effects.OutlineEffect
+import gg.essential.universal.USound
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater
-import net.minecraft.client.Minecraft
-import net.minecraft.client.audio.PositionedSoundRecord
-import net.minecraft.util.ResourceLocation
 import java.awt.Color
 
 class SexyButton(
@@ -37,12 +37,7 @@ class SexyButton(
             outlineEffect::color.animate(Animations.OUT_EXP, 1f, Color(0, 0, 0, 0))
         }.onMouseClick {
             if (playClickSound) {
-                Minecraft.getMinecraft().soundHandler.playSound(
-                    PositionedSoundRecord.create(
-                        ResourceLocation("gui.button.press"),
-                        1f
-                    )
-                )
+                USound.playButtonPress()
             }
         }
     }

@@ -2,9 +2,12 @@ package mynameisjeff.skyblockclientupdater.utils
 
 import com.google.gson.JsonParser
 import gg.essential.api.EssentialAPI
+import gg.essential.api.utils.Multithreading
+import gg.essential.api.utils.WebUtil
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.decodeFromStream
+import mynameisjeff.skyblockclientupdater.SkyClientUpdater
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater.json
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater.mc
 import mynameisjeff.skyblockclientupdater.data.LocalMod
@@ -20,15 +23,11 @@ import net.minecraftforge.fml.common.ModContainer
 import net.minecraftforge.fml.common.eventhandler.EventPriority
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import org.apache.commons.lang3.StringUtils
-import org.apache.http.HttpVersion
-import org.apache.http.client.methods.HttpGet
 import org.apache.logging.log4j.LogManager
 import java.awt.Desktop
 import java.io.File
 import java.io.IOException
-import java.net.URL
 import java.util.jar.JarFile
-import kotlin.concurrent.thread
 
 /**
  * Taken from Skytils under GNU Affero General Public License v3.0
@@ -66,14 +65,14 @@ object UpdateChecker {
     fun updateLatestCommitId() {
         latestCommitId = try {
             val commits = JsonParser().parse(
-                WebUtils.fetchResponse(
+                WebUtil.fetchString(
                     "https://api.github.com/repos/${
                         System.getProperty(
                             "scu.repo",
                             "nacrt/SkyblockClient-REPO"
                         )
                     }/commits"
-                )
+                ) ?: throw NullPointerException()
             ).asJsonArray
             commits[0].asJsonObject["sha"].asString
         } catch (ex: Throwable) {
@@ -164,7 +163,7 @@ object UpdateChecker {
 
     fun getLatestMods() {
         try {
-            latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtils.fetchResponse("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitId/files/mods.json")).filter { !it.ignored })
+            latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtil.fetchString("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitId/files/mods.json") ?: throw NullPointerException()).filter { !it.ignored })
         } catch (ex: Throwable) {
             logger.error("Failed to load mod files.", ex)
         }
@@ -249,7 +248,6 @@ object UpdateChecker {
 
     private fun checkMatch(expected: String, received: String): Boolean {
         val exempt = charArrayOf('_', '-', '+', ' ', '.')
-        val whitespace = charArrayOf('_', ' ', '.', '+')
 
         val e = expected.lowercase().toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
         val r = received.lowercase().toCharArray().dropWhile { it == '!' }.filter { !exempt.contains(it) }
@@ -285,22 +283,16 @@ object UpdateChecker {
         taskDir.mkdirs()
         val taskFile = File(taskDir, url.substringAfterLast("/"))
         if (!taskFile.exists()) {
-            thread(name = "Download SkyclientUpdater delete task") {
+            Multithreading.runAsync {
                 logger.info("Downloading SkyClientUpdater delete task.")
-                WebUtils.builder.build().use {
-                    val req = HttpGet(URL(url).toURI())
-                    req.protocolVersion = HttpVersion.HTTP_1_1
-                    taskFile.createNewFile()
-                    val res = it.execute(req)
-                    if (res.statusLine.statusCode != 200) {
-                        logger.info("Downloading SkyClientUpdater delete task failed!")
-                        deleteTask = File("invalid")
-                    } else {
-                        logger.info("Writing SkyClientUpdater delete task.")
-                        res.entity.writeTo(taskFile.outputStream())
-                        deleteTask = taskFile
-                        logger.info("SkyClientUpdater delete task successfully downloaded!")
-                    }
+                deleteTask = try {
+                    WebUtil.downloadToFile(url, taskFile, "SkyblockClient-Updater/${SkyClientUpdater.VERSION}")
+                    logger.info("SkyClientUpdater delete task successfully downloaded!")
+                    taskFile
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    logger.info("Downloading SkyClientUpdater delete task failed!")
+                    File("invalid")
                 }
             }
         } else {
