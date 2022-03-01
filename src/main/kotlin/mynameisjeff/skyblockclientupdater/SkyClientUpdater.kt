@@ -14,7 +14,6 @@ import java.awt.Color
     version = SkyClientUpdater.VERSION,
     modid = "skyblockclientupdater",
     clientSideOnly = true,
-    modLanguage = "kotlin",
     modLanguageAdapter = "gg.essential.api.utils.KotlinAdapter"
 ) object SkyClientUpdater {
     const val VERSION = "@VERSION@"
@@ -33,13 +32,11 @@ import java.awt.Color
         MinecraftForge.EVENT_BUS.register(EventListener())
         MinecraftForge.EVENT_BUS.register(UpdateChecker)
 
-        val progress = ProgressManager.push("SkyClient Updater", 5)
+        val progress = ProgressManager.push("SkyClient Updater", 4)
         progress.step("Downloading helper utility")
         UpdateChecker.downloadHelperTask()
         progress.step("Discovering mods")
         UpdateChecker.getValidModFiles()
-        progress.step("Fetching latest commit ID")
-        UpdateChecker.updateLatestCommitId()
         progress.step("Fetching latest versions")
         UpdateChecker.getLatestMods()
         progress.step("Comparing versions")

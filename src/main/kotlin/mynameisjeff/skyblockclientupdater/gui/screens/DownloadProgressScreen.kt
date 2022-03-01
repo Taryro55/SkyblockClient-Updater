@@ -1,6 +1,5 @@
 package mynameisjeff.skyblockclientupdater.gui.screens
 
-import gg.essential.api.utils.Multithreading
 import gg.essential.elementa.components.UIBlock
 import gg.essential.elementa.components.UIContainer
 import gg.essential.elementa.components.UIText
@@ -10,11 +9,7 @@ import gg.essential.elementa.constraints.SiblingConstraint
 import gg.essential.elementa.constraints.animation.Animations
 import gg.essential.elementa.dsl.*
 import gg.essential.elementa.effects.OutlineEffect
-import gg.essential.elementa.state.BasicState
 import gg.essential.universal.UMatrixStack
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import mynameisjeff.skyblockclientupdater.SkyClientUpdater
 import mynameisjeff.skyblockclientupdater.gui.elements.SexyButton
 import mynameisjeff.skyblockclientupdater.utils.TickTask
@@ -39,6 +34,10 @@ class DownloadProgressScreen(
 
     private var exited = false
 
+    private var watchingFile: File? = null
+    private var currentProgress: Long = -1
+    private var totalSize: Long = -1
+
     val headerText = UIText("Updating your mods...").constrain {
         x = CenterConstraint()
         y = CenterConstraint()
@@ -55,6 +54,7 @@ class DownloadProgressScreen(
         height = 10.pixels()
     } effect OutlineEffect(Color.BLACK, 2f) childOf contentContainer
     val progressBar = UIBlock(SkyClientUpdater.accentColor).constrain {
+        width = 1.pixel()
         height = 10.pixels()
     } childOf progressBarContainer
 
@@ -79,24 +79,20 @@ class DownloadProgressScreen(
 
     init {
         thread(name = "SkyClient Updater Thread") {
-            runBlocking {
-                try {
-                    val directory = File(File(SkyClientUpdater.mc.mcDataDir, "skyclientupdater"), "updates")
-                    directory.mkdirs()
-                    for (update in updating) {
-                        launch(Dispatchers.IO) {
-                            val jarName = update.second
-                            val file = File(directory, jarName)
-                            downloadUpdate(update, file)
-                            if (!failedUpdated.contains(update)) {
-                                UpdateChecker.deleteFileOnShutdown(update.first, jarName)
-                                successfullyUpdated.add(update)
-                            }
-                        }
+            try {
+                val directory = File(File(SkyClientUpdater.mc.mcDataDir, "skyclientupdater"), "updates")
+                directory.mkdirs()
+                for (update in updating) {
+                    val jarName = update.second
+                    val file = File(directory, jarName)
+                    downloadUpdate(update, file)
+                    if (!failedUpdated.contains(update)) {
+                        UpdateChecker.deleteFileOnShutdown(update.first, jarName)
+                        successfullyUpdated.add(update)
                     }
-                } catch (ex: Exception) {
-                    ex.printStackTrace()
                 }
+            } catch (ex: Exception) {
+                ex.printStackTrace()
             }
         }
     }
@@ -105,6 +101,9 @@ class DownloadProgressScreen(
         try {
             currentlyUpdatingText.setText(update.second)
             val logger = LogManager.getLogger("SkyClientUpdater (Update Downloader)")
+            progressBar.constrain {
+                width = 0.pixels()
+            }
             val st = URL(update.third).openConnection() as HttpURLConnection
             st.setRequestProperty(
                 "User-Agent",
@@ -123,31 +122,24 @@ class DownloadProgressScreen(
                 return
             }
 
+            watchingFile = file
+            currentProgress = 0
+            totalSize = st.contentLengthLong
             st.inputStream.use { stream ->
                 BufferedInputStream(stream).use { bufferedStream ->
                     FileOutputStream(file).use { output ->
                         val data = ByteArray(1024)
                         var count: Int
-                        val progress = BasicState(0L)
-                        progress.onSetValue {
-                            Multithreading.runAsync {
-                                progressBar.animate {
-                                    setWidthAnimation(
-                                        Animations.OUT_EXP,
-                                        0.5f,
-                                        ((if (it == 0L) 1 else it / st.contentLengthLong) * 200).pixels()
-                                    )
-                                }
-                            }
-                        }
-
                         while (bufferedStream.read(data, 0, 1024).also { count = it } != -1) {
-                            progress.set(progress.get() + count)
                             output.write(data, 0, count)
                         }
                     }
                 }
             }
+            Thread.sleep(1000)
+            watchingFile = null
+            currentProgress = -1
+            totalSize = -1
         } catch (ex: Exception) {
             ex.printStackTrace()
             failedUpdated.add(update)
@@ -156,6 +148,23 @@ class DownloadProgressScreen(
 
     override fun onDrawScreen(matrixStack: UMatrixStack, mouseX: Int, mouseY: Int, partialTicks: Float) {
         super.onDrawScreen(matrixStack, mouseX, mouseY, partialTicks)
+        watchingFile?.let { file ->
+            if (currentProgress != -1L && totalSize != -1L) {
+                file.length().let { size ->
+                    if (size != currentProgress) {
+                        currentProgress = size
+                        println("$size/$totalSize")
+                        progressBar.animate {
+                            setWidthAnimation(
+                                Animations.OUT_EXP,
+                                0.1f,
+                                ((((size * 0.000001) / (totalSize * 0.000001))) * 200).pixels()
+                            )
+                        }
+                    }
+                }
+            }
+        }
         when {
             exited -> {
                 val directory = File(File(SkyClientUpdater.mc.mcDataDir, "skyclientupdater"), "updates")
