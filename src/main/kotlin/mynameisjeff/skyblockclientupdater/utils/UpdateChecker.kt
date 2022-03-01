@@ -1,5 +1,6 @@
 package mynameisjeff.skyblockclientupdater.utils
 
+import com.google.gson.JsonParser
 import gg.essential.api.EssentialAPI
 import gg.essential.api.utils.Multithreading
 import gg.essential.api.utils.WebUtil
@@ -41,6 +42,8 @@ object UpdateChecker {
     val needsUpdate = hashSetOf<Triple<File, String, String>>()
 
     val needsDelete = hashSetOf<Pair<File, String>>()
+
+    var latestCommitId = "main"
     private var ignoreUpdates = false
 
     private var addedShutdownHook = false
@@ -57,6 +60,25 @@ object UpdateChecker {
 
     fun ignoreUpdates() {
         ignoreUpdates = true
+    }
+
+    fun updateLatestCommitId() {
+        latestCommitId = try {
+            val commits = JsonParser().parse(
+                WebUtil.fetchString(
+                    "https://api.github.com/repos/${
+                        System.getProperty(
+                            "scu.repo",
+                            "nacrt/SkyblockClient-REPO"
+                        )
+                    }/commits"
+                ) ?: throw NullPointerException()
+            ).asJsonArray
+            commits[0].asJsonObject["sha"].asString
+        } catch (ex: Throwable) {
+            logger.error("Failed to fetch latest commit ID.", ex)
+            "main"
+        }
     }
 
     fun deleteFileOnShutdown(oldFile: File, newFile: String) {
@@ -141,10 +163,7 @@ object UpdateChecker {
 
     fun getLatestMods() {
         try {
-            latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtil.fetchString("https://cdn.jsdelivr.net/gh/${System.getProperty(
-                "scu.repo",
-                "nacrt/SkyblockClient-REPO"
-            )}/files/mods.json") ?: throw NullPointerException()).filter { !it.ignored })
+            latestMods.addAll(json.decodeFromString<List<RepoMod>>(WebUtil.fetchString("https://cdn.jsdelivr.net/gh/nacrt/SkyblockClient-REPO@$latestCommitId/files/mods.json") ?: throw NullPointerException()).filter { !it.ignored })
         } catch (ex: Throwable) {
             logger.error("Failed to load mod files.", ex)
         }
