@@ -3,17 +3,17 @@ pluginManagement {
         mavenLocal()
         gradlePluginPortal()
         mavenCentral()
-        maven {
-            name = "sonatype"
-            url = uri("https://oss.sonatype.org/content/repositories/snapshots")
-        }
-        maven { url = uri("https://maven.minecraftforge.net/") }
-        maven { url = uri("https://jitpack.io") }
+
+        maven("https://jitpack.io/")
+        maven("https://maven.architectury.dev/")
+        maven("https://maven.fabricmc.net")
+        maven("https://maven.minecraftforge.net")
+        maven("https://repo.sk1er.club/repository/maven-public/")
     }
     resolutionStrategy {
         eachPlugin {
             when (requested.id.id) {
-                "net.minecraftforge.gradle.forge" -> useModule("com.github.Skytils:ForgeGradle:${requested.version}")
+                "gg.essential.loom" -> useModule("gg.essential:architectury-loom:${requested.version}")
             }
         }
     }
